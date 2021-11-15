@@ -11,7 +11,7 @@ from homeassistant.const import (
 )
 
 from .common import LocalTuyaEntity, async_setup_entry
-from .const import CONF_SCALING
+from .const import CONF_SCALING, CONF_SENSITIVITY
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,6 +26,7 @@ def flow_schema(dps):
         vol.Optional(CONF_SCALING): vol.All(
             vol.Coerce(float), vol.Range(min=-1000000.0, max=1000000.0)
         ),
+        vol.Required(CONF_SENSITIVITY, default=0.0): vol.Coerce(float),
     }
 
 
@@ -62,8 +63,14 @@ class LocaltuyaSensor(LocalTuyaEntity):
         """Device status was updated."""
         state = self.dps(self._dp_id)
         scale_factor = self._config.get(CONF_SCALING)
-        if scale_factor is not None and isinstance(state, (int, float)):
-            state = round(state * scale_factor, DEFAULT_PRECISION)
+        if isinstance(state, (int, float)):
+            if scale_factor is not None:
+                state = round(state * scale_factor, DEFAULT_PRECISION)
+
+            sensitivity = self._config.get(CONF_SENSITIVITY, 0.0)
+            if isinstance(self._state, (int, float)) and abs(self._state - state) < sensitivity:
+                return
+
         self._state = state
 
 
